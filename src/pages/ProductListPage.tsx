@@ -1,48 +1,71 @@
-
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import ProductCard from './ProductCard';
-import { fetchProducts } from "../api/store/Product.api"
+import { fetchProducts } from '../api/store/Product.api';
+import { useEffect, useState } from 'react';
 
 interface Product {
   id: string;
   name: string;
+  title: string;
+  slug: string;
+  description: string;
   price: number;
 }
 
-
 const ProductListPage = () => {
-  const { data, isLoading, isError } = useQuery({
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+  } = useInfiniteQuery({
     queryKey: ['products'],
     queryFn: fetchProducts,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   });
 
   const [products, setProducts] = useState<Product[]>([]);
 
-  // Update local state when query data changes
   useEffect(() => {
-    if (data) {
-      setProducts(data);
+    if (data?.pages) {
+      const allProducts = data.pages.flatMap((page) => page.products);
+      setProducts(allProducts);
     }
   }, [data]);
 
   const handleDelete = (id: string) => {
-    setProducts(prev => prev.filter(product => product.id !== id));
+    setProducts((prev) => prev.filter((product) => product.id !== id));
   };
 
   if (isLoading) return <p>Loading...</p>;
   if (isError) return <p>Failed to load products.</p>;
 
   return (
-    <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-      {products.map(product => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          onDelete={() => handleDelete(product.id)}
-        />
-      ))}
+    <div className="p-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {products.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            onDelete={() => handleDelete(product.id)}
+          />
+        ))}
+      </div>
+
+      {hasNextPage && (
+        <div className="text-center">
+          <button
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isFetchingNextPage ? 'Loading more...' : 'Load More'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
